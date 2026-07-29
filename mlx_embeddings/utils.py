@@ -738,3 +738,30 @@ def generate(
         outputs = model(**inputs)
 
     return outputs
+
+
+def embed(
+    model: nn.Module,
+    processor: Union[PreTrainedTokenizer, TokenizerWrapper, AutoProcessor],
+    texts: Union[str, List[str]],
+    max_length: int = 512,
+    **kwargs,
+) -> List[List[float]]:
+    """Return normalized text embeddings for ``texts`` as plain Python lists.
+
+    A thin convenience wrapper over :func:`generate` that extracts the
+    normalized ``text_embeds`` and materializes them as one row vector per
+    input string, ready to be serialized (e.g. by an OpenAI-compatible
+    ``/v1/embeddings`` endpoint).
+    """
+    if isinstance(texts, str):
+        texts = [texts]
+    outputs = generate(model, processor, texts, max_length=max_length, **kwargs)
+    embeddings = getattr(outputs, "text_embeds", None)
+    if embeddings is None:
+        raise ValueError(
+            "The model did not return `text_embeds`; it may not be a text "
+            "embedding model."
+        )
+    mx.eval(embeddings)
+    return embeddings.tolist()
